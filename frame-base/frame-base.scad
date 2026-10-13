@@ -1,21 +1,25 @@
 // Slanted stand for the Dell Optiplex 9020 open-frame tray  (v4, optimized for printing)
 // Bambu Lab A1 (256 x 256 x 256 mm bed).
 //
-// A kit of 4 printed parts: TWO identical side frames and TWO base bars.
+// A kit of 4 printed parts: a LEFT and a RIGHT side frame (mirror images, because
+// the bar pockets are on the inner faces) and TWO identical base bars.
 //  - Each side frame prints FLAT on its outer face, so every layer runs along the
 //    frame and the loads follow the layer lines (strongest direction). No supports.
 //  - The frames are open triangles (already rigid) with thin bands and rounded
-//    inside corners, and extra
-//    material only where the tray bolts on (the sloped top band) and where the bars
-//    plug in (the base band).
+//    inside corners, with extra material only where the tray bolts on (the sloped
+//    top band) and where the bars plug in (the base band).
 //  - Each bar has a tenon at both ends that slots into a pocket in the frame,
 //    so it can't twist, and is held by one M4 x 20 screw per end.
 //
-// HOW TO EXPORT: set `part` below to "rail" (print 2x), then "bar" (print 2x),
-// press F6 then F7 for each. Use "assembly" to preview the finished stand.
+// HOW TO USE: `part` (below) picks what is shown and exported with F6 then F7.
+//   "all"      = the 4 pieces, separated and laid out side by side (default)
+//   "left"     = the left side frame            "right" = the right side frame (mirror)
+//   "bar"      = one base bar (print 2x)
+//   "plate1"   = left frame + both bars on one A1 build plate;  "plate2" = right frame
+//   "assembly" = the finished stand, put together (preview only)
 // Axes (assembly): x = tray width, y = depth (front to back), z = up.
 
-part = "assembly";    // "assembly" | "rail" | "bar"
+part = "all";         // "all" | "left" | "right" | "bar" | "plate1" | "plate2" | "assembly"
 
 /* ---------- Tray (must match the tray file) ---------- */
 board_w     = 200;
@@ -160,7 +164,7 @@ module bar_raw() {
 }
 
 module assembly() {
-    // left and right frames (identical parts)
+    // left frame, and the right frame as its mirror image
     rotate([90, 0, 90]) rail_raw();
     translate([tray_w, 0, 0]) mirror([1, 0, 0]) rotate([90, 0, 90]) rail_raw();
     // base bars
@@ -171,6 +175,36 @@ module assembly() {
             cube([tray_w, tray_d, tray_t]);
 }
 
-if (part == "rail") translate([-base_y0, 0, 0]) rail_raw();    // print 2x, outer face down
-else if (part == "bar") bar_raw();                              // print 2x, flat
+/* ---------- Build plate layouts (Bambu Lab A1) ---------- */
+plate_gap = 3;                        // space between parts on the plate
+
+// LEFT frame, outer face down, in the plate's corner
+module frame_left() { translate([-base_y0, 0, 0]) rail_raw(); }
+
+// RIGHT frame: the mirror image of the left one, also outer face down
+module frame_right() { translate([size_y, 0, 0]) mirror([1, 0, 0]) frame_left(); }
+
+// the base bars, lying flat in a row above the frame
+module plate_bars() {
+    for (i = [0, 1])
+        translate([0, size_z + plate_gap + i*(bar_d + plate_gap), 0]) bar_raw();
+}
+
+// all 4 pieces separated and laid out in a grid, just for viewing
+module all_pieces() {
+    gap = 10;
+    frame_left();
+    translate([size_y + gap, 0, 0]) frame_right();
+    for (i = [0, 1]) translate([i*(size_y + gap), -(bar_d + gap), 0]) bar_raw();
+}
+
+if (part == "all") all_pieces();
+else if (part == "left") frame_left();
+else if (part == "right") frame_right();
+else if (part == "bar") bar_raw();
+else if (part == "plate1") { frame_left(); plate_bars(); }
+else if (part == "plate2") frame_right();
 else assembly();
+
+// plate 1 needs this much of the bed (must stay under the A1's 256 mm)
+echo(str("Plate 1 size: ", size_y, " x ", size_z + plate_gap + 2*bar_d + plate_gap, " mm"));
